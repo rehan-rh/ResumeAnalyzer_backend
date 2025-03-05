@@ -62,16 +62,21 @@ authRouter.post("/signup", async (req, res) => {
 
 
   authRouter.post('/googlelogin', async (req, res) => {
-    const { emailId } = req.body;
-    console.log(req.body);
+    const { emailId,fullName } = req.body;
+   
 
     try {
-        // Find the user by email
-        const user = await User.findOne({ emailId });
+        
+        let user = await User.findOne({ emailId });
+     
         if (!user) {
-            console.log("Email not registered!");
-            return res.status(401).json({ error: 'Email not registered' });
-        }
+          console.log("Creating new Google user...");
+          user = await User.create({
+              fullName,
+              emailId,
+              password: null, 
+          });
+      }
 
         const token = await jwt.sign({ _id: user._id }, "RESUME@123", {
           expiresIn: "1d",
