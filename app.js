@@ -9,6 +9,10 @@ const { connect } = require("mongoose");
 const session = require("express-session");
 require("dotenv").config();
 
+app.use((err, req, res, next) => {
+  console.error("Server Error:", err);
+  res.status(500).json({ error: err.message || "Internal Server Error" });
+});
 
 app.use(
   cors({
@@ -22,8 +26,10 @@ app.use(express.json()); // Middleware to parse JSON
 app.use(cookieParser());
 
 const authRouter = require("./src/routes/auth");
+const resumeRouter = require("./src/routes/resume");
 
 app.use("/",authRouter);
+app.use("/resume", resumeRouter);
 
 connectDB().then(() => {
   console.log("Database connected");

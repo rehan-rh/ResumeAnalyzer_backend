@@ -45,7 +45,7 @@ authRouter.post("/signup", async (req, res) => {
         if(!isPasswordMatched){
             throw new Error("Invalid credentials");
         }
-        const token = await jwt.sign({ _id: user._id }, "RESUME@123", {
+        const token = await jwt.sign({ userId: user._id, email: user.email }, "RESUME@123", {
             expiresIn: "1d",
           });
 
