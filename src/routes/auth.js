@@ -63,7 +63,6 @@ authRouter.post("/signup", async (req, res) => {
 
   authRouter.post('/googlelogin', async (req, res) => {
     const { emailId,fullName } = req.body;
-   
 
     try {
         
