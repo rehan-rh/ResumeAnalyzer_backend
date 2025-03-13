@@ -14,13 +14,13 @@ router.post("/analyze", upload.single("resume"), authMiddleware, async (req, res
     console.log("userId",userId);
     const resumeFile = req.file;
 
-    const jobDescription=req.body.jobDescription;
+    const jobDescription = req.body.jobDescription;
 
 
     if (!resumeFile) return res.status(400).json({ error: "No file uploaded" });
 
     // Analyze Resume using AI (e.g., OpenAI, spaCy, or BERT)
-    const analysis = await analyzeResume(resumeFile);
+    const analysis = await analyzeResume(resumeFile, jobDescription);
 
     // Save to DB
     const resume = new Resume({ userId, ...analysis });

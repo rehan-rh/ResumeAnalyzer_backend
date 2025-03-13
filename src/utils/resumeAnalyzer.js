@@ -33,7 +33,7 @@ async function extractTextFromResume(filePath, mimeType) {
 }
 
 // Function to analyze resume using OpenAI
-async function analyzeResume(file) {
+async function analyzeResume(file, jobRole) {
   try {
     // Dynamically import Google Generative AI
     const { GoogleGenerativeAI } = await import("@google/generative-ai");
@@ -47,7 +47,9 @@ async function analyzeResume(file) {
       - Matching jobs for the given resume
       - Missing skills for different matching jobs
       - Suggested jobs for the given resume
+      - Readability score for the given resume
       - ATS (Applicant Tracking System) compatibility
+      - Exclusive skill comparision for the given resume with the job role '''${jobRole}'''
 
       Resume:
       """${resumeText}"""
