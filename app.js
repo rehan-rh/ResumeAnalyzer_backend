@@ -27,9 +27,11 @@ app.use(cookieParser());
 
 const authRouter = require("./src/routes/auth");
 const resumeRouter = require("./src/routes/resume");
+const userRouter = require("./src/routes/user");
 
 app.use("/",authRouter);
 app.use("/resume", resumeRouter);
+app.use("/user", userRouter);
 
 connectDB().then(() => {
   console.log("Database connected");
