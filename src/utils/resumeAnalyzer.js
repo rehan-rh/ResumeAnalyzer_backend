@@ -53,6 +53,7 @@ async function analyzeResume(file) {
       """${resumeText}"""
     `;
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    console.log(genAI);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
     const result = await model.generateContent([prompt]);
     console.log(result);

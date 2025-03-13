@@ -10,21 +10,32 @@ const passport = require("passport");
 authRouter.post("/signup", async (req, res) => {
     try {
      
+      console.log("came to sign up!")
       validateSignUpData(req);
-  
-      const { fullName, emailId, password } = req.body;
-      console.log("Parsed user data:", fullName, emailId, password);
+      console.log("Validation Successful!");
+      const { firstName, lastName, emailId, password } = req.body;
+      console.log("Parsed user data:", firstName, lastName, emailId, password);
   
       const passwordHash = await bcrypt.hash(password, 10);
   
       const user = new User({
-        fullName,
+        firstName,
+        lastName,
         emailId,
         password: passwordHash,
       });
   
       const savedUser = await user.save();
-      res.status(201).json({ message: "User added successfully", data: savedUser });
+
+      const token = await jwt.sign({ userId: savedUser._id, email: savedUser.emailId }, "RESUME@123", {
+        expiresIn: "1d",
+      });
+
+    res.cookie("token", token,{
+        expires: new Date(Date.now() + 8 * 3600000),
+    })
+
+      res.status(201).json({ message: "User registered successfully", data: savedUser });
     } catch (err) {
       console.error("Error:", err.message);
       res.status(400).send("Error: " + err.message);
@@ -45,7 +56,7 @@ authRouter.post("/signup", async (req, res) => {
         if(!isPasswordMatched){
             throw new Error("Invalid credentials");
         }
-        const token = await jwt.sign({ userId: user._id, email: user.email }, "RESUME@123", {
+        const token = await jwt.sign({ userId: user._id, email: user.emailId }, "RESUME@123", {
             expiresIn: "1d",
           });
 
@@ -64,6 +75,9 @@ authRouter.post("/signup", async (req, res) => {
   authRouter.post('/googlelogin', async (req, res) => {
     const { emailId,fullName } = req.body;
 
+
+    console.log(req.body);
+
     try {
         
         let user = await User.findOne({ emailId });
@@ -77,9 +91,11 @@ authRouter.post("/signup", async (req, res) => {
           });
       }
 
-        const token = await jwt.sign({ _id: user._id }, "RESUME@123", {
+        const token = await jwt.sign({ userId: user._id, email: user.emailId }, "RESUME@123", {
           expiresIn: "1d",
         });
+
+        console.log(token);
 
       res.cookie("token", token,{
           expires: new Date(Date.now() + 8 * 3600000),
