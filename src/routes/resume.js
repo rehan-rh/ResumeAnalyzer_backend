@@ -1,11 +1,15 @@
 const express = require("express");
 const multer = require("multer");
 const Resume = require("../models/Resume");
+const User = require("../models/User");
 const { analyzeResume } = require("../utils/resumeAnalyzer");
 const authMiddleware = require("../middleware/authMiddleware");
 
 const router = express.Router();
-const upload = multer({ dest: "uploads/" }); // Temporary storage
+// Configure Multer to store files in memory (not in a folder)
+const storage = multer.memoryStorage(); // Store file in RAM instead of disk
+const upload = multer({ storage: storage });
+
 
 router.post("/analyze", upload.single("resume"), authMiddleware, async (req, res) => {
     console.log("Request received at /resume/analyze"); // Debugging
@@ -19,14 +23,37 @@ router.post("/analyze", upload.single("resume"), authMiddleware, async (req, res
 
     if (!resumeFile) return res.status(400).json({ error: "No file uploaded" });
 
-    // Analyze Resume using AI (e.g., OpenAI, spaCy, or BERT)
-    const analysis = await analyzeResume(resumeFile, jobDescription);
-
+    // Extract mimetype and file buffer
+    const mimeType = resumeFile.mimetype;  // Example: "application/pdf"
+    const fileBuffer = resumeFile.buffer;  // File data in memory
+    console.log(mimeType, fileBuffer);
+    // Analyze Resume
+    const result = await analyzeResume(fileBuffer, mimeType, jobDescription);
+    console.log(result.analysis);
     // Save to DB
-    const resume = new Resume({ userId, ...analysis });
-    await resume.save();
+    const newResume = new Resume({
+      userId,
+      file: resumeFile.buffer, // Store PDF as binary data
+      contentType: resumeFile.mimetype, // Store MIME type
+      extractedText: result.extractedText,
+      analysis: result.analysis,
+      score: result.score,
+      missingKeywords: result.missingKeywords,
+      suggestedJobs: result.suggestedJobs,
+      readabilityScore: result.readabilityScore,
+      grammarIssues: result.grammarIssues,
+      atsFriendly: result.atsFriendly,
+  });
+  await newResume.save(); // Save to Resume collection
 
-    res.json(resume);
+  // Update user's resumes array with new Resume ObjectId
+  const user = await User.findByIdAndUpdate(
+      userId,
+      { $push: { resumes: newResume._id } }, // Store ObjectId in user's resumes array
+      { new: true }
+  );
+
+  res.json({ message: "Resume added successfully", resume: newResume });
   } catch (error) {
     res.status(500).json({ error: "Error analyzing resume" });
   }

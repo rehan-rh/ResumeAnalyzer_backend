@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const ResumeSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  fileUrl: { type: String, required: false }, // Resume file location
+  file: { type: Buffer, required: false }, // Resume file location
   extractedText: { type: String, required: true }, // Parsed text from resume,
   analysis: {type: String, required: true},
   score: { type: Number, default: 0 }, // Overall resume score (0-100)
