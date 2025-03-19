@@ -29,6 +29,12 @@ router.post("/analyze", upload.single("resume"), authMiddleware, async (req, res
     console.log(mimeType, fileBuffer);
     // Analyze Resume
     const result = await analyzeResume(fileBuffer, mimeType, jobDescription);
+
+    console.log("Type of result:", typeof result);
+    console.log("Type of result:", typeof result.analysis);
+    console.log("Full result:", result);
+    console.log("Full result:", result.analysis);
+
     console.log(result.analysis);
     // Save to DB
     const newResume = new Resume({
@@ -43,6 +49,8 @@ router.post("/analyze", upload.single("resume"), authMiddleware, async (req, res
       readabilityScore: result.readabilityScore,
       grammarIssues: result.grammarIssues,
       atsFriendly: result.atsFriendly,
+
+
   });
   await newResume.save(); // Save to Resume collection
 
@@ -53,7 +61,10 @@ router.post("/analyze", upload.single("resume"), authMiddleware, async (req, res
       { new: true }
   );
 
-  res.json({ message: "Resume added successfully", resume: newResume });
+  console.log("for verification");
+  console.log(result.sectionScores);
+
+  res.json({ message: "Resume added successfully", resume: newResume, sectionScores: result.sectionScores });
   } catch (error) {
     res.status(500).json({ error: "Error analyzing resume" });
   }
