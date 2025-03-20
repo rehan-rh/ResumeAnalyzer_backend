@@ -43,6 +43,9 @@ async function analyzeResume(fileBuffer, mimeType, jobRole) {
         - grammarIssues: breif message if there are any grammar mistakes,
         - atsFriendly: whether the resume is ATS friendly or not just give the boolean value,
         - detailedDescription: tells overall things about resume end to end
+
+      -And lastly rate the section wise score out of 10 for each section in the resume. 
+
       Resume:
       """${resumeText}"""
     `;
@@ -55,11 +58,34 @@ async function analyzeResume(fileBuffer, mimeType, jobRole) {
     const result = await model.generateContent([prompt]);
     const analysis = result.response.text();
     console.log(analysis);
+
+    // Create a duplicate for parsing
+
+    let sectionScores = {};
+    try {
+        // Create a duplicate variable for parsing
+        const duplicateResponse = analysis;
+    
+        // Extract JSON content from the duplicate response
+        const parsedData = JSON.parse(duplicateResponse.replace(/```json|```/g, "").trim());
+    
+        // Extract sectionScores safely
+        sectionScores = parsedData.sectionScores || {};
+    } catch (error) {
+        console.error("Error parsing section scores:", error);
+    }
+    
+
+// Extract section-wise scores
+
+
     return {
       extractedText: resumeText,
       analysis: analysis,
       score: Math.floor(Math.random() * 50) + 50, // Randomized score (50-100)
       atsFriendly: analysis.toLowerCase().includes("ats friendly"),
+      sectionScores,
+     
     };
   } catch (error) {
     console.error("Error analyzing resume:", error);
