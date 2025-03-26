@@ -35,16 +35,16 @@ async function analyzeResume(fileBuffer, mimeType, jobRole) {
       - Readability score for the given resume
       - ATS (Applicant Tracking System) compatibility
       - Exclusive skill comparison for the given resume with the job role: '${jobRole} without any table just with pointers'
-      - No seperate text or strings should be there, Give everything in the form of json data having the following fields
-        - score: represents ATS score,
-        - missingKeywords: keywords missed in the resume to make it effective,
-        - suggestedJobs: related jobs for the given resume,
-        - readabilityScore: represents readability of the resume,
-        - grammarIssues: breif message if there are any grammar mistakes,
-        - atsFriendly: whether the resume is ATS friendly or not just give the boolean value,
-        - detailedDescription: tells overall things about resume end to end
-
-      -And lastly rate the section wise score out of 10 for each section in the resume. 
+      - No additional text or explanation—return **only** valid JSON.
+      - Return the JSON response with the following fields:
+        - **score**: Represents ATS score.
+        - **missingKeywords**: Keywords missed in the resume to make it effective.
+        - **suggestedJobs**: Related jobs for the given resume.
+        - **readabilityScore**: Represents readability of the resume.
+        - **grammarIssues**: Brief message if there are any grammar mistakes.
+        - **atsFriendly**: Whether the resume is ATS-friendly ('true' or 'false').
+        - **detailedDescription**: End-to-end summary of the resume.
+      -And lastly rate the section wise score out of 10 for each secion in the resume. 
 
       Resume:
       """${resumeText}"""
@@ -57,20 +57,23 @@ async function analyzeResume(fileBuffer, mimeType, jobRole) {
 
     const result = await model.generateContent([prompt]);
     const analysis = result.response.text();
-    console.log(analysis);
+    // console.log(analysis);
 
     // Create a duplicate for parsing
 
     let sectionScores = {};
+    let final_analysis = analysis;
     try {
         // Create a duplicate variable for parsing
-        const duplicateResponse = analysis;
+        const duplicateResponse = analysis.replace(/```json|```/g, "").trim();
     
         // Extract JSON content from the duplicate response
-        const parsedData = JSON.parse(duplicateResponse.replace(/```json|```/g, "").trim());
+        const parsedData = JSON.parse(duplicateResponse);
     
         // Extract sectionScores safely
         sectionScores = parsedData.sectionScores || {};
+        console.log(parsedData);
+        final_analysis = parsedData;
     } catch (error) {
         console.error("Error parsing section scores:", error);
     }
@@ -81,14 +84,14 @@ async function analyzeResume(fileBuffer, mimeType, jobRole) {
 
     return {
       extractedText: resumeText,
-      analysis: analysis,
+      analysis: final_analysis,
       score: Math.floor(Math.random() * 50) + 50, // Randomized score (50-100)
       atsFriendly: analysis.toLowerCase().includes("ats friendly"),
       sectionScores,
      
     };
   } catch (error) {
-    console.error("Error analyzing resume:", error);
+    console.error("Error analyzing resume at resumeAnalyzer.js:", error);
     throw error;
   }
 }

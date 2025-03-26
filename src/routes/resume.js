@@ -31,26 +31,35 @@ router.post("/analyze", upload.single("resume"), authMiddleware, async (req, res
     const result = await analyzeResume(fileBuffer, mimeType, jobDescription);
 
     console.log("Type of result:", typeof result);
-    console.log("Type of result:", typeof result.analysis);
-    console.log("Full result:", result);
-    console.log("Full result:", result.analysis);
+    console.log("Type of result.analysis:", typeof result.analysis);
+    // console.log("Full result:", result);
+    // console.log("Full result:", result.analysis);
 
-    console.log(result.analysis);
+    // console.log(result.analysis);
     // Save to DB
+
+    console.log(typeof result.extractedText);
+    console.log(typeof result.analysis);
+    console.log(typeof result.analysis.score);
+    console.log(typeof result.analysis.missingKeywords);
+    console.log(typeof result.analysis.suggestedJobs);
+    console.log(typeof result.analysis.readabilityScore);
+    console.log(typeof result.analysis.grammarIssues);
+    console.log(typeof result.analysis.atsFriendly);
+    console.log(typeof result.sectionScores);
+    console.log(result.sectionScores);
     const newResume = new Resume({
       userId,
       file: resumeFile.buffer, // Store PDF as binary data
       contentType: resumeFile.mimetype, // Store MIME type
       extractedText: result.extractedText,
       analysis: result.analysis,
-      score: result.score,
-      missingKeywords: result.missingKeywords,
-      suggestedJobs: result.suggestedJobs,
-      readabilityScore: result.readabilityScore,
-      grammarIssues: result.grammarIssues,
-      atsFriendly: result.atsFriendly,
-
-
+      score: result.analysis.score,
+      missingKeywords: result.analysis.missingKeywords,
+      suggestedJobs: result.analysis.suggestedJobs,
+      readabilityScore: result.analysis.readabilityScore,
+      grammarIssues: result.analysis.grammarIssues,
+      atsFriendly: result.analysis.atsFriendly,
   });
   await newResume.save(); // Save to Resume collection
 
@@ -61,8 +70,8 @@ router.post("/analyze", upload.single("resume"), authMiddleware, async (req, res
       { new: true }
   );
 
-  console.log("for verification");
-  console.log(result.sectionScores);
+  // console.log("for verification");
+  // console.log(result.sectionScores);
 
   res.json({ message: "Resume added successfully", resume: newResume, sectionScores: result.sectionScores });
   } catch (error) {
