@@ -152,4 +152,258 @@ async function jobMatcher(fileBuffer, mimeType, jobRole) {
   }
 }
 
-module.exports = { analyzeResume, jobMatcher };
+// Function to analyze resume and generate interview-style questions
+async function taketest(fileBuffer, mimeType) {
+  try {
+
+    console.log("inside the utils function!");
+
+    // 1. Extract text from the uploaded resume
+    const resumeText = await extractTextFromResume(fileBuffer, mimeType);
+    console.log("Extracted Resume Text:", resumeText);
+
+
+
+    // 2. Prepare the prompt for question generation
+    const prompt = `
+You are a senior technical interviewer and HR expert.
+
+Analyze the following resume and generate a structured set of interview questions to evaluate the candidate's skills and communication.
+
+Resume:
+"""${resumeText}"""
+
+Instructions:
+1. Identify top technical skills (like programming languages, tools, frameworks, etc.) and prepare:
+   - 3 MCQs to test knowledge of those skills.
+   - 2 descriptive questions (like explain a concept, solve a small problem, etc.)
+
+2. Identify soft skills or behavioral cues (like communication, teamwork, leadership, etc.) and prepare:
+   - 2 situational questions to test soft skills.
+
+Format the result as JSON like this:
+
+\`\`\`json
+{
+  "mcq": [
+    {
+      "question": "Which of the following is true about React hooks?",
+      "options": ["They replace Redux", "They allow use of state in functional components", "They are only for class components", "None of the above"],
+      "answer": "They allow use of state in functional components"
+    }
+  ],
+  "descriptive": [
+    {
+      "question": "Explain how promises work in JavaScript and give a real-world example."
+    }
+  ],
+  "softSkills": [
+    {
+      "question": "Tell us about a time you had to resolve a team conflict. What was your approach?"
+    }
+  ]
+}
+\`\`\`
+Only return valid JSON inside code block. No extra text.
+`;
+
+    // 3. Import Google Generative AI & get model
+    const { GoogleGenerativeAI } = await import("@google/generative-ai");
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
+
+    const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
+    await sleep(1000);
+
+
+    // 4. Generate content from Gemini
+    const result = await model.generateContent([prompt]);
+    const responseText = result.response.text();
+
+    // 5. Extract JSON from Gemini response
+    let questions = [];
+    try {
+      const jsonOnly = responseText.replace(/```json|```/g, "").trim();
+      questions = JSON.parse(jsonOnly);
+      console.log("Generated Questions:", questions);
+    } catch (err) {
+      console.error("Error parsing questions JSON:", err);
+    }
+
+
+    console.log('questions:-')
+    console.log(questions);
+
+    return {
+      // extractedText: resumeText,
+      questions: questions,
+    };
+  } catch (error) {
+    console.error("Error generating test questions from resume at taketest():", error);
+    throw error;
+  }
+}
+
+
+//test evaluation
+
+async function evaluateAnswers(mcqAnswers, descriptiveAnswers, softSkillAnswers) {
+  let mcqScore = 0;
+  const mcqDetails = [];
+
+  console.log("evaluatre anlyser");
+  console.log(mcqAnswers);
+  console.log(descriptiveAnswers);
+  console.log(softSkillAnswers);
+
+  // ✅ Evaluate MCQs locally
+  mcqAnswers.forEach(({ question, selectedAnswer, correctAnswer }) => {
+    const isCorrect = selectedAnswer === correctAnswer;
+    if (isCorrect) mcqScore++;
+    mcqDetails.push({ question, selectedAnswer, correctAnswer, isCorrect });
+  });
+
+  const totalMcq = mcqAnswers.length;
+
+    // 🧠 AI-based feedback with retry delay
+    const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
+
+  // Sequential Gemini API calls to avoid 429 error
+  const descriptiveFeedback = await getGeminiFeedback(descriptiveAnswers, "technical");
+  await sleep(1000); // wait 10s before next call
+
+  const softSkillFeedback = await getGeminiFeedback(softSkillAnswers, "softskills");
+  await sleep(1000); // wait 10s before next call
+
+  const mentorAdvice = await getMentorLevelFeedback(descriptiveAnswers, softSkillAnswers);
+
+
+  console.log('evaluate');
+  console.log(descriptiveFeedback)
+  console.log(softSkillFeedback);
+  console.log(mentorAdvice);
+
+
+
+  return {
+    sectionScores: {
+      mcq: { score: mcqScore, total: totalMcq, details: mcqDetails },
+      descriptive: descriptiveFeedback,
+      softSkills: softSkillFeedback,
+    },
+    mentorAnalysis: mentorAdvice,
+  };
+}
+
+// 🧠 Feedback per section (technical or soft skills)
+async function getGeminiFeedback(answers, type) {
+ 
+  const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
+ 
+  const joinedAnswers = answers.map((a, i) => `Q${i + 1}: ${a.question}\nA: ${a.answer}`).join("\n\n");
+
+  const prompt = `
+    Analyze the following ${type === "technical" ? "technical" : "soft skill"} answers.
+
+    Return ONLY valid JSON with the structure:
+    {
+      "feedbackSummary": "Overall summary",
+      "strengths": ["point1", "point2"],
+      "weaknesses": ["point1", "point2"],
+      "suggestions": ["tip1", "tip2"]
+    }
+
+    Answers:
+    """${joinedAnswers}"""
+  `;
+
+
+    // 3. Import Google Generative AI & get model
+    const { GoogleGenerativeAI } = await import("@google/generative-ai");
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
+
+
+    await sleep(1000); // ⏳ Wait 1s before calling Gemini to avoid rate limit
+
+
+  const result = await model.generateContent([prompt]);
+  const rawText = result.response.text();
+
+  try {
+    const cleanText = rawText.replace(/```json|```/g, "").trim();
+    
+    
+    console.log(`cleanText: ${cleanText}`);
+
+    return JSON.parse(cleanText);
+  } catch (error) {
+    console.error("Failed to parse Gemini feedback JSON:", error);
+    return { error: "Failed to parse Gemini response", raw: rawText };
+  }
+}
+
+// 🧑‍🏫 Mentor-like holistic analysis
+async function getMentorLevelFeedback(descriptiveAnswers, softSkillAnswers) {
+ 
+ 
+  const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
+ 
+  const techText = descriptiveAnswers.map((a, i) => `Q${i + 1}: ${a.question}\nA: ${a.answer}`).join("\n\n");
+  const softText = softSkillAnswers.map((a, i) => `Q${i + 1}: ${a.question}\nA: ${a.answer}`).join("\n\n");
+
+  const prompt = `
+    You're a professional mentor.
+
+    Based on the following answers (technical and soft skills), give a high-level personalized feedback covering:
+    - Overall Confidence Level (Low / Medium / High)
+    - Strongest Skills
+    - Areas Needing Improvement
+    - Suggestions to Improve Interview Readiness
+    - Final Mentor Advice
+
+    Format:
+    {
+      "confidenceLevel": "High",
+      "strongAreas": ["point1", "point2"],
+      "improvementAreas": ["point1", "point2"],
+      "mentorAdvice": "detailed paragraph summary"
+    }
+
+    Technical:
+    """${techText}"""
+
+    Soft Skills:
+    """${softText}"""
+  `;
+
+
+    // 3. Import Google Generative AI & get model
+    const { GoogleGenerativeAI } = await import("@google/generative-ai");
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
+
+    await sleep(1000); // ⏳ Wait 1s before calling Gemini to avoid rate limit
+
+
+  const result = await model.generateContent([prompt]);
+  const rawText = result.response.text();
+
+  try {
+    const cleaned = rawText.replace(/```json|```/g, "").trim();
+    
+    console.log('cleaned');
+    console.log(cleaned);
+    
+    return JSON.parse(cleaned);
+  } catch (error) {
+    console.error("Mentor feedback parsing error:", error);
+    return { error: "Failed to parse mentor response", raw: rawText };
+  }
+}
+
+module.exports = { analyzeResume, jobMatcher, taketest, evaluateAnswers };

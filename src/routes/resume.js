@@ -2,7 +2,7 @@ const express = require("express");
 const multer = require("multer");
 const Resume = require("../models/Resume");
 const User = require("../models/User");
-const { analyzeResume, jobMatcher } = require("../utils/resumeAnalyzer");
+const { analyzeResume, jobMatcher, taketest, evaluateAnswers } = require("../utils/resumeAnalyzer");
 const authMiddleware = require("../middleware/authMiddleware");
 
 const router = express.Router();
@@ -187,6 +187,59 @@ router.get('/stats', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+
+router.post("/taketest", upload.single("resume"), authMiddleware, async (req, res) => {
+  console.log("Request received at /resume/jobMatcher"); // Debugging
+try {
+  const { userId } = req.user; // Extract from token middleware
+  console.log("userId",userId);
+  const resumeFile = req.file;
+
+
+
+  if (!resumeFile) return res.status(400).json({ error: "No file uploaded" });
+
+  // Extract mimetype and file buffer
+  const mimeType = resumeFile.mimetype;  // Example: "application/pdf"
+  const fileBuffer = resumeFile.buffer;  // File data in memory
+  console.log(mimeType, fileBuffer);
+  // Analyze Resume
+
+  const result = await taketest(fileBuffer, mimeType);
+
+  console.log("Type of result:", typeof result);
+  console.log("Type of result.analysis:", typeof result.questions);
+  // Save to DB
+
+
+  res.json({
+    message: "Test generated successfully",
+    questions: result.questions,
+    // resumeText: result.extractedText,
+  });
+  
+  
+} catch (error) {
+  res.status(500).json({ error: "Error matching the jobs for the given resume" });
+}
+});
+
+
+router.post("/submit-answers", async (req, res) => {
+  try {
+    const { mcq, descriptive, softSkills } = req.body;
+    console.log("req.body")
+    console.log(req.body);
+    const result = await evaluateAnswers(mcq, descriptive, softSkills);
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error("Evaluation error:", error);
+    res.status(500).json({ message: "Failed to evaluate answers", error });
+  }
+});
+
 
 
 
